@@ -1,10 +1,12 @@
 # Oracle 极简部署
 
-当前未连接 Oracle。以下文件供有主机权限的开发者执行，不代表已上线。
+Oracle 已部署 HTTPS Demo。手机入口为 https://mya-esand.duckdns.org/mobile/ ，服务通过 `mya-demo.service` 运行，监听 127.0.0.1:8787。已有真实用户配对与演示审批记录。升级沿用现有密钥、数据库和代理。
+
+部署布局：代码 `/opt/mya-demo/releases/`，`/opt/mya-demo/current` 指向当前 release；Node24 位于 `/opt/mya-demo/runtime/`；持久数据 `/var/lib/mya-demo`；环境配置 `/etc/mya-demo/server.env`。下文为维护及新主机安装步骤。
 
 ## 主机准备
 
-只读核查 Node 24、CPU 架构、磁盘、已有 80/443 服务和代理配置。使用已有 SSH alias `oracle` 时先由用户确认它实际指向预期主机。不要打印 SSH 私钥或替换现有服务。
+只读核查 Node 24、CPU 架构、磁盘、已有 80/443 服务和代理配置。使用已有 SSH alias `oracle` 时核对实际目标；当前会话已有部署授权时无需重复确认。不要打印 SSH 私钥或替换无关服务。
 
 在非 root 应用账号工作目录检出仓库，执行 `npm ci && npm run build`。生产环境 `npm ci` 需要 esbuild 来构建；构建后可以 `npm prune --omit=dev`。程序监听 127.0.0.1:8787。
 

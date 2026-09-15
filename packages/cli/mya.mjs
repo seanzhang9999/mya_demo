@@ -140,6 +140,11 @@ async function main() {
         "mya request --file input.json",
         "mya status --request ID --wait 20",
         "mya execute --request ID",
+        "mya execute --request ID --presentation",
+        "mya wallet",
+        "mya inspect [--request ID] [--binding ID]",
+        "mya challenge --request ID --out challenge.json",
+        "mya present --request ID [--challenge challenge.json]",
         "mya receipt --request ID",
         "mya cancel --request ID",
         "mya revoke --binding ID",
@@ -248,6 +253,66 @@ async function main() {
       );
       return;
     }
+    if (command === "wallet") {
+      output({
+        server: config.origin,
+        profile: "MYA demo JWS wallet",
+        bindings: Object.values(session.state.bindings).map((b) => ({
+          binding_id: b.relation.binding_id,
+          agent: b.relation.agent.name,
+          credential_types: [
+            "RelationshipCredential",
+            "BindingWitnessCredential",
+          ],
+          expires_at: b.relation.expires_at,
+        })),
+        approvals: Object.entries(session.state.requests)
+          .filter(([, r]) => r.grant)
+          .map(([request_id, r]) => ({
+            request_id,
+            status: r.status,
+            credential_type: "ApprovalGrant",
+            expires_at: P.peek(r.grant).expires_at,
+            has_receipt: !!r.receipt,
+            has_presentation_result: !!r.presentation_result,
+          })),
+        note: "此处是库存摘要；使用 inspect 进行实时验签与在线状态检查。",
+      });
+      return;
+    }
+    if (command === "inspect") {
+      output(
+        await session.inspect(options.request || null, options.binding || null),
+      );
+      return;
+    }
+    if (command === "challenge") {
+      P.check(typeof options.out === "string", "OUTPUT_FILE_REQUIRED");
+      const challenge = await session.challenge(options.request);
+      await writeFile(
+        resolve(options.out),
+        JSON.stringify({ challenge }, null, 2),
+        { mode: 0o600, flag: "wx" },
+      );
+      output({
+        status: "challenge_created",
+        ...P.peek(challenge),
+        saved_to: resolve(options.out),
+      });
+      return;
+    }
+    if (command === "present") {
+      let challenge;
+      if (options.challenge) {
+        const input = P.parse(
+          await readFile(resolve(options.challenge), "utf8"),
+        );
+        P.fields(input, ["challenge"]);
+        challenge = input.challenge;
+      }
+      output(await session.present(options.request, challenge));
+      return;
+    }
     if (command === "request") {
       P.check(typeof options.file === "string", "INPUT_FILE_REQUIRED");
       const input = P.parse(await readFile(resolve(options.file), "utf8"));
@@ -302,7 +367,9 @@ async function main() {
       } while (true);
     }
     if (command === "execute") {
-      const { data } = await session.execute(options.request);
+      const { data } = await session.execute(options.request, {
+        presentation: !!options.presentation,
+      });
       output({ status: "succeeded", ...data });
       return;
     }

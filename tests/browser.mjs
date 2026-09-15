@@ -16,8 +16,23 @@ const report = JSON.stringify({
   status: "in_progress",
   completion_percent: 60,
 });
-const dir = await mkdtemp(join(tmpdir(), "mya-browser-")),
-  app = await createServer({ dir });
+const dir = await mkdtemp(join(tmpdir(), "mya-browser-"));
+const remoteOrigin = process.env.MYA_TEST_ORIGIN;
+let app;
+const cleanup = [];
+if (remoteOrigin) {
+  const remoteInfo = await new P.Client(remoteOrigin).info();
+  assert.equal(
+    await P.thumb(remoteInfo.witness),
+    process.env.MYA_TEST_WITNESS,
+    "remote witness must be pinned explicitly",
+  );
+  app = {
+    info: () => remoteInfo,
+    listen: async () => remoteOrigin,
+    close: async () => {},
+  };
+} else app = await createServer({ dir });
 let browser;
 try {
   const origin = await app.listen(0);
@@ -72,6 +87,14 @@ try {
     .getByRole("button", { name: "模拟验证并绑定", exact: true })
     .click();
   await agent.confirmPair();
+  cleanup.push(() =>
+    agent.client.auth(
+      "/v1/bindings/revoke",
+      {},
+      agent.identity.sign,
+      agent.binding().relation.binding_id,
+    ),
+  );
   await page.getByText("已绑定", { exact: true }).waitFor();
   await agent.pairStatus();
   const id = await agent.submit("项目进度 60%，内部成本 120000", {
@@ -94,8 +117,26 @@ try {
   await page.getByRole("button", { name: "查看并编辑规则" }).waitFor();
   await agent.poll();
   assert.equal(agent.state.requests[next].status, "approved");
-  await agent.execute(next);
+  await agent.execute(next, { presentation: true });
   await page.getByText("已批准 · 已执行").waitFor();
+  await page.getByRole("button", { name: "重新校验凭证", exact: true }).click();
+  await page
+    .getByText("历史执行时：授权处于有效期内", { exact: false })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator(".credential-checks .tag")
+      .filter({ hasText: "未通过" })
+      .count(),
+    0,
+  );
+  await page.getByText("按挑战出示的校验记录（1）", { exact: true }).waitFor();
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "credential panel overflow",
+  );
   await mkdir("artifacts", { recursive: true });
   await page.screenshot({
     path: "artifacts/mobile-approval.png",
@@ -143,7 +184,14 @@ try {
         })
       ).stdout,
     );
-  await cli(["init", "--server", origin, "--trust-local"]);
+  await cli([
+    "init",
+    "--server",
+    origin,
+    ...(remoteOrigin
+      ? ["--trust-witness", process.env.MYA_TEST_WITNESS]
+      : ["--trust-local"]),
+  ]);
   const processPair = spawn(
     process.execPath,
     ["packages/cli/mya.mjs", "pair", "--no-open"],
@@ -183,6 +231,10 @@ try {
     .click();
   await pc.getByRole("button", { name: "两端短码一致，确认绑定" }).click();
   await pairExited;
+  cleanup.push(async () => {
+    for (const b of await cli(["bindings"]))
+      await cli(["revoke", "--binding", b.binding_id]);
+  });
   await mobile2.getByText("已绑定", { exact: true }).waitFor();
   const actual = await cli(["request", "--file", "fixtures/request-safe.json"]);
   await mobile2.getByRole("button", { name: /待审批/ }).click();
@@ -199,15 +251,47 @@ try {
     "20",
   ]);
   assert.equal(decision.status, "approved");
-  const delivery = await cli(["execute", "--request", actual.request_id]);
+  const challengeFile = join(dir, "challenge.json");
+  await cli([
+    "challenge",
+    "--request",
+    actual.request_id,
+    "--out",
+    challengeFile,
+  ]);
+  assert.equal(
+    (
+      await cli([
+        "present",
+        "--request",
+        actual.request_id,
+        "--challenge",
+        challengeFile,
+      ])
+    ).result,
+    "verified",
+  );
+  const delivery = await cli([
+    "execute",
+    "--request",
+    actual.request_id,
+    "--presentation",
+  ]);
   assert.equal(delivery.result, "delivered_to_demo_inbox");
+  const audit = await cli(["inspect", "--request", actual.request_id]);
+  assert.ok(
+    audit.checks.every((x) => x.status === "passed"),
+    JSON.stringify(audit.checks),
+  );
+  assert.equal((await cli(["wallet"])).approvals.length, 1);
   assert.equal((await cli(["doctor"])).status, "ok");
   await second.close();
   await pc.close();
   console.log(
-    "Browser PASS: pair, modify, approve, receipt, policy activation, refresh persistence, auto approval, exception, pause, mobile layout; real CLI init/pair/request/status/execute/doctor.",
+    "Browser PASS: pair, modify, approve, credential checks, challenge presentation, receipt, policy activation, refresh persistence, auto approval, exception, pause, mobile layout; real CLI init/pair/request/status/challenge/present/execute/inspect/wallet/doctor.",
   );
 } finally {
+  for (const revoke of cleanup) await revoke();
   if (browser) await browser.close();
   await app.close();
   await rm(dir, { recursive: true, force: true });

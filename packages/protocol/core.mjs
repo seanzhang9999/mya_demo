@@ -612,6 +612,8 @@ export class Client {
   }
   async raw(path, body) {
     const res = await fetch(this.origin + path, {
+      redirect: "error",
+      signal: AbortSignal.timeout(20000),
       method: body === undefined ? "GET" : "POST",
       headers: body === undefined ? {} : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),

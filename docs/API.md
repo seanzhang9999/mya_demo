@@ -34,6 +34,14 @@ JSON 数值时间为 UTC epoch milliseconds；与 PLAN.md 的 RFC3339 表达建�
 | /v1/delegations/pause | `{delegation_id}` | 用户钥 |
 | /v1/demo/reports | `{request_jws,payload_b64,grant,delegation?}` | Agent 持钥＋有效用户授权 |
 | /v1/demo/executions/query | `{request_id}` | 绑定端，只能查询自己关系的回执 |
+| /v1/wallet/status | `{request_id,delegation_id}`（可为 null） | 绑定端，返回资源签名的关系/取消/规则状态及出示校验历史 |
+| /v1/demo/reports/prepare | `{request_jws,payload_b64}` | Agent，验证并冻结请求，返回签名挑战 |
+| /v1/wallet/present | `{challenge,credentials,presentation}` | Agent，关系/见证/授权＋签名持钥证明，消费一次性挑战，返回签名校验结果 |
+| /v1/demo/reports/execute-verified | `{transaction_id}` | 当前绑定的 Agent，读取服务端校验记录并重新核对所有执行授权条件 |
+
+challenge 中的 audience 是完整 MYA origin，response_uri 是该 origin 的 `/v1/wallet/present`。它同时绑定流水号、nonce、Agent 密钥、关系、请求、action_hash 与 context_hash；最长 120 秒。持钥证明最长 30 秒并绑定整组凭证摘要；校验结果不超过挑战与授权有效期。不同于旧外层认证证明的固定 `mya-demo-resource` audience，两层均需匹配。
+
+请求、附带凭证执行与分步验证执行共用授权校验逻辑。`present` 不消耗执行额度、不投递报告；同一挑战只接受一次出示，执行按 request_id/grant_id 幂等。参见 [凭证钱包指南](CREDENTIAL_WALLET.md)。
 
 ## 内容与授权绑定
 

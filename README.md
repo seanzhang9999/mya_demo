@@ -92,6 +92,7 @@ npm run test:browser
 - [HTTP 与协议实现合同](docs/API.md)
 - [部署、备份与回滚](docs/DEPLOYMENT.md)
 - [Codex 交接与后续工作](docs/HANDOFF.md)
+- [凭证钱包、逐项校验与按挑战出示](docs/CREDENTIAL_WALLET.md)
 
 ## 当前限制
 

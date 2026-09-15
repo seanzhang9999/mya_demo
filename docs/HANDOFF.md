@@ -6,12 +6,15 @@
 
 - `packages/protocol/core.mjs`：密码封装、凭证、请求/授权验证、固定规则。
 - `packages/protocol/session.mjs`：PC/手机状态机及消息流程。
+- `packages/protocol/wallet.mjs`：凭证逐项检查、挑战与持钥出示；`authorization.mjs` 是两种执行路径共用的授权校验。
 - `services/server.mjs`：HTTP、持钥认证、SQLite、见证、密文队列、资源验证。
 - `apps/mobile-web`：手机界面、扫码、IndexedDB/CryptoKey 与加密记录。
 - `packages/cli/mya.mjs`：PC 安装实例、冻结请求、本地配对页。
 - `.agents/skills/mya-approval`：可被 Codex 发现的 Skill。
 
 ## 先完成实际环境验证
+
+PC CLI/Skill、Oracle HTTPS 和真实用户配对/修订审批已完成。当前状态以 IMPLEMENTATION_STATUS.md 为准；下面流程也作为升级回归清单。手机新钱包入口与 CLI 挑战出示参见 CREDENTIAL_WALLET.md。保留现有 MYA_HOME、服务器密钥和数据目录。
 
 1. 在用户 PC 安装 Node24/依赖，显式用 `$mya-approval` 运行，而非只从测试脚本调用 session。
 2. 在已有 Oracle 部署有效 HTTPS；部署前检查授权和已有服务，禁止覆盖现有代理。

@@ -5,6 +5,12 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { importJWK, exportJWK } from "jose";
 import * as P from "../packages/protocol/core.mjs";
+import { verifyAuthorization } from "../packages/protocol/authorization.mjs";
+import {
+  PRESENT_PATH,
+  presentationChecks,
+  verifyChallenge,
+} from "../packages/protocol/wallet.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export async function createServer({
   dir = resolve(ROOT, ".data"),
@@ -99,6 +105,7 @@ export async function createServer({
     company: P.COMPANY,
     environment: "demo",
     accept_demo_assurance: acceptDemo,
+    capabilities: ["credential-inspection", "challenge-presentation/1"],
   });
   async function authenticate(path, body) {
     P.fields(body, ["data", "proof"]);
@@ -365,8 +372,41 @@ export async function createServer({
       put("challenge", c.id, c);
       return c;
     }
-    const { b, role, data } = await authenticate(path, body),
+    const authenticated = await authenticate(path, body);
+    const { b, role } = authenticated,
       bid = b.relation.binding_id;
+    let data = authenticated.data,
+      verifiedTransaction = null;
+    if (path === "/v1/wallet/status") {
+      P.fields(data, ["request_id", "delegation_id"]);
+      const policy = data.delegation_id
+        ? get("delegation", data.delegation_id)
+        : null;
+      P.check(!policy || policy.data.binding_id === bid, "UNKNOWN_DELEGATION");
+      const presentations = all("presentation")
+        .filter(
+          (x) =>
+            x.binding_id === bid &&
+            x.request_id === data.request_id &&
+            x.result,
+        )
+        .map((x) => x.result);
+      return {
+        status: await P.sign(
+          {
+            type: "WalletStatus",
+            binding_id: bid,
+            request_id: data.request_id,
+            binding_status: b.status,
+            cancelled: !!get("cancel", bid + ":" + data.request_id),
+            delegation_status: policy?.status || null,
+            presentations,
+            ...P.stamp(30000),
+          },
+          resource,
+        ),
+      };
+    }
     if (path === "/v1/bindings/status")
       return {
         status: await P.sign(
@@ -396,6 +436,182 @@ export async function createServer({
         : { receipt: null };
     }
     active(b);
+    const currentAuthorization = (q, g, d, delegation) => {
+      active(bind(bid));
+      P.validTime(q, 600000);
+      P.validTime(g, 120000);
+      P.check(!get("cancel", bid + ":" + q.request_id), "REQUEST_CANCELLED");
+      if (d) {
+        P.validTime(d, 86400000);
+        const current = get("delegation", d.delegation_id);
+        P.check(
+          current?.status === "active" && current.jws === delegation,
+          "POLICY_INACTIVE",
+        );
+        P.check(current.executions < d.max_approvals, "POLICY_LIMIT_REACHED");
+      }
+    };
+    if (path === "/v1/demo/reports/prepare") {
+      P.check(role === "agent", "INVALID_ROLE");
+      P.fields(data, ["request_jws", "payload_b64"]);
+      const { q } = await P.verifyRequest(data, b.relation, { context: false });
+      P.check(!get("cancel", bid + ":" + q.request_id), "REQUEST_CANCELLED");
+      P.check(
+        all("presentation").filter(
+          (x) => x.binding_id === bid && x.expires_at > P.now(),
+        ).length < 20,
+        "CHALLENGE_LIMIT",
+        429,
+      );
+      const lifetime = P.stamp(120000);
+      const c = {
+        type: "PresentationChallenge",
+        transaction_id: P.id(),
+        nonce: P.id(),
+        binding_id: bid,
+        agent_key_id: q.agent_key_id,
+        request_id: q.request_id,
+        action_hash: q.action_hash,
+        context_hash: q.context_hash,
+        audience: actualOrigin,
+        response_uri: actualOrigin + PRESENT_PATH,
+        issued_at: lifetime.issued_at,
+        expires_at: Math.min(q.expires_at, lifetime.expires_at),
+      };
+      const challenge = await P.sign(c, resource);
+      put("presentation", c.transaction_id, {
+        ...c,
+        challenge,
+        bundle: data,
+        used: false,
+      });
+      return { challenge };
+    }
+    if (path === PRESENT_PATH) {
+      P.check(role === "agent", "INVALID_ROLE");
+      P.check(acceptDemo, "DEMO_ASSURANCE_DISABLED", 403);
+      P.fields(data, ["challenge", "credentials", "presentation"]);
+      P.fields(
+        data.credentials,
+        ["relationship", "witness", "grant", "delegation"],
+        ["relationship", "witness", "grant"],
+      );
+      const hint = P.peek(data.challenge),
+        stored = get("presentation", hint.transaction_id);
+      P.check(
+        stored &&
+          stored.binding_id === bid &&
+          stored.challenge === data.challenge,
+        "INVALID_CHALLENGE",
+      );
+      const q = P.peek(stored.bundle.request_jws);
+      const c = await verifyChallenge(
+        data.challenge,
+        { origin: actualOrigin, trust: { resource: resource.publicKey } },
+        b,
+        q,
+        await P.thumb(b.relation.agent.sign),
+      );
+      P.check(!stored.used, "CHALLENGE_REPLAY");
+      const rel = await P.verifyCredentials(data.credentials, {
+        witness: witness.publicKey,
+      });
+      P.check(
+        JSON.stringify(rel) === JSON.stringify(b.relation) &&
+          data.credentials.relationship === b.credentials.relationship &&
+          data.credentials.witness === b.credentials.witness,
+        "CREDENTIAL_MISMATCH",
+      );
+      const p = await P.verify(data.presentation, b.relation.agent.sign);
+      P.fields(p, [
+        "type",
+        "transaction_id",
+        "nonce",
+        "binding_id",
+        "request_id",
+        "action_hash",
+        "context_hash",
+        "audience",
+        "response_uri",
+        "credentials_hash",
+        "issued_at",
+        "expires_at",
+      ]);
+      P.validTime(p, 30000);
+      for (const field of [
+        "transaction_id",
+        "nonce",
+        "binding_id",
+        "request_id",
+        "action_hash",
+        "context_hash",
+        "audience",
+        "response_uri",
+      ])
+        P.check(p[field] === c[field], "PRESENTATION_MISMATCH");
+      P.check(
+        p.type === "CredentialPresentation" &&
+          p.expires_at <= c.expires_at &&
+          p.credentials_hash ===
+            (await P.hash(JSON.stringify(data.credentials))),
+        "PRESENTATION_MISMATCH",
+      );
+      const auth = {
+        ...stored.bundle,
+        grant: data.credentials.grant,
+        ...(data.credentials.delegation
+          ? { delegation: data.credentials.delegation }
+          : {}),
+      };
+      const { g, d } = await verifyAuthorization(auth, b.relation);
+      P.check(p.expires_at <= g.expires_at, "PRESENTATION_MISMATCH");
+      const result = {
+        type: "CredentialVerificationResult",
+        verification_id: P.id(),
+        transaction_id: c.transaction_id,
+        binding_id: bid,
+        request_id: q.request_id,
+        action_hash: q.action_hash,
+        context_hash: q.context_hash,
+        audience: actualOrigin,
+        credentials_hash: p.credentials_hash,
+        presentation_hash: await P.hash(data.presentation),
+        result: "verified",
+        checks: presentationChecks,
+        issued_at: P.now(),
+        expires_at: Math.min(
+          c.expires_at,
+          g.expires_at,
+          d?.expires_at || Infinity,
+        ),
+      };
+      const signed = await P.sign(result, resource);
+      tx(() => {
+        const latest = get("presentation", c.transaction_id);
+        P.check(latest && !latest.used, "CHALLENGE_REPLAY");
+        P.validTime(c, 120000);
+        P.validTime(p, 30000);
+        currentAuthorization(q, g, d, auth.delegation);
+        put("presentation", c.transaction_id, {
+          ...latest,
+          used: true,
+          auth,
+          result,
+          result_jws: signed,
+        });
+      });
+      return { verification: signed };
+    }
+    if (path === "/v1/demo/reports/execute-verified") {
+      P.fields(data, ["transaction_id"]);
+      verifiedTransaction = get("presentation", data.transaction_id);
+      P.check(
+        verifiedTransaction?.binding_id === bid && verifiedTransaction.result,
+        "PRESENTATION_REQUIRED",
+      );
+      P.validTime(verifiedTransaction.result, 120000);
+      data = verifiedTransaction.auth;
+    }
     if (path === "/v1/relay/send") {
       P.fields(data, ["message_id", "to", "ciphertext"]);
       P.check(role !== "user", "INVALID_ROLE");
@@ -501,7 +717,10 @@ export async function createServer({
       put("delegation", data.delegation_id, { ...d, status: "paused" });
       return { status: "paused" };
     }
-    if (path === "/v1/demo/reports") {
+    if (
+      path === "/v1/demo/reports" ||
+      path === "/v1/demo/reports/execute-verified"
+    ) {
       P.fields(
         data,
         ["request_jws", "payload_b64", "grant", "delegation"],
@@ -509,64 +728,13 @@ export async function createServer({
       );
       P.check(role === "agent", "INVALID_ROLE");
       P.check(acceptDemo, "DEMO_ASSURANCE_DISABLED", 403);
-      const { q, a, bytes } = await P.verifyRequest(data, b.relation, {
-        context: false,
-      });
-      const hint = P.peek(data.grant),
-        auto = hint.decision_mode === "policy_auto";
-      const g = await P.verify(
-        data.grant,
-        auto ? b.relation.phone.auto : b.relation.phone.user,
+      const { q, a, bytes, g, d, auto } = await verifyAuthorization(
+        data,
+        b.relation,
       );
-      P.fields(g, [
-        "type",
-        "grant_id",
-        "request_id",
-        "binding_id",
-        "binding_version",
-        "agent_key_id",
-        "audience",
-        "action_hash",
-        "context_hash",
-        "decision",
-        "decision_mode",
-        "delegation_id",
-        "delegation_hash",
-        "analysis_id",
-        "issued_at",
-        "expires_at",
-        "user_verification",
-        "environment",
-      ]);
-      P.validTime(g, 120000);
-      P.check(
-        g.type === "ApprovalGrant" &&
-          g.decision === "approve" &&
-          ["policy_auto", "human_confirmed_demo"].includes(g.decision_mode) &&
-          g.binding_id === bid &&
-          g.binding_version === 1 &&
-          g.request_id === q.request_id &&
-          g.agent_key_id === q.agent_key_id &&
-          g.audience === P.AUD &&
-          g.action_hash === q.action_hash &&
-          g.context_hash === q.context_hash &&
-          g.expires_at <= q.expires_at &&
-          g.user_verification === "simulated" &&
-          g.environment === "demo",
-        "GRANT_MISMATCH",
-      );
-      let d;
-      if (auto) {
-        d = await P.validateDelegation(data.delegation, b.relation);
-        P.check(
-          d.delegation_id === g.delegation_id &&
-            (await P.hash(data.delegation)) === g.delegation_hash &&
-            P.matches(d, q, a, bytes) &&
-            g.expires_at <= d.expires_at,
-          "POLICY_SCOPE_MISMATCH",
-        );
-      } else P.check(!g.delegation_id && !g.delegation_hash, "GRANT_MISMATCH");
       const receipt = tx(() => {
+        if (verifiedTransaction)
+          P.validTime(verifiedTransaction.result, 120000);
         active(bind(bid));
         P.validTime(q, 600000);
         P.validTime(g, 120000);
@@ -613,6 +781,12 @@ export async function createServer({
           result: "delivered_to_demo_inbox",
           executed_at: P.now(),
           audience: P.AUD,
+          ...(verifiedTransaction
+            ? {
+                transaction_id: verifiedTransaction.transaction_id,
+                verification_id: verifiedTransaction.result.verification_id,
+              }
+            : {}),
         };
         db.prepare("INSERT INTO executions VALUES(?,?,?,?,?)").run(
           q.request_id,

@@ -1,4 +1,11 @@
 import * as P from "./core.mjs";
+import {
+  inspectWallet,
+  makePresentation,
+  verifyChallenge,
+  verifyResult,
+  PRESENT_PATH,
+} from "./wallet.mjs";
 export class AgentSession {
   constructor(client, identity, state = {}, save = async () => {}) {
     this.client = client;
@@ -182,7 +189,63 @@ export class AgentSession {
     }
     return this.state.requests;
   }
-  async execute(request_id) {
+  async inspect(request_id = null, binding_id = null) {
+    return inspectWallet(this, request_id, binding_id);
+  }
+  async challenge(request_id) {
+    const rec = this.state.requests[request_id];
+    P.check(rec, "UNKNOWN_REQUEST");
+    const b = this.binding(rec.binding_id);
+    const { challenge } = await this.client.auth(
+      "/v1/demo/reports/prepare",
+      {
+        request_jws: rec.bundle.request_jws,
+        payload_b64: rec.bundle.payload_b64,
+      },
+      this.identity.sign,
+      rec.binding_id,
+    );
+    await verifyChallenge(
+      challenge,
+      this.client,
+      b,
+      P.peek(rec.bundle.request_jws),
+      this.identity.sign.kid,
+    );
+    rec.presentation_challenge = challenge;
+    await this.save();
+    return challenge;
+  }
+  async present(request_id, challenge = null) {
+    const rec = this.state.requests[request_id];
+    P.check(rec?.status === "approved", "NOT_APPROVED");
+    const b = this.binding(rec.binding_id);
+    const signedChallenge = challenge || (await this.challenge(request_id));
+    const body = await makePresentation(
+      this.client,
+      this.identity,
+      b,
+      rec,
+      signedChallenge,
+    );
+    // Only the pinned server's exact presentation endpoint is supported by this profile.
+    const out = await this.client.auth(
+      PRESENT_PATH,
+      body,
+      this.identity.sign,
+      rec.binding_id,
+    );
+    const v = await verifyResult(
+      out.verification,
+      this.client,
+      P.peek(rec.bundle.request_jws),
+      P.peek(signedChallenge).transaction_id,
+    );
+    rec.presentation_result = out.verification;
+    await this.save();
+    return v;
+  }
+  async execute(request_id, { presentation = false } = {}) {
     const rec = this.state.requests[request_id];
     P.check(
       rec && ["approved", "succeeded", "unknown"].includes(rec.status),
@@ -201,11 +264,25 @@ export class AgentSession {
       grant: rec.grant,
     };
     if (rec.delegation) body.delegation = rec.delegation;
+    let resultBody = body,
+      path = "/v1/demo/reports";
+    if (presentation) {
+      const v = rec.presentation_result
+        ? await verifyResult(
+            rec.presentation_result,
+            this.client,
+            P.peek(rec.bundle.request_jws),
+            P.peek(rec.presentation_result).transaction_id,
+          )
+        : await this.present(request_id);
+      resultBody = { transaction_id: v.transaction_id };
+      path = "/v1/demo/reports/execute-verified";
+    }
     rec.status = "unknown";
     await this.save();
     const result = await this.client.auth(
-      "/v1/demo/reports",
-      body,
+      path,
+      resultBody,
       this.identity.sign,
       r.binding_id,
     );
@@ -322,6 +399,9 @@ export class PhoneSession {
     this.state.pair = { invite: p.invite, join };
     await this.save();
     return this.pairStatus();
+  }
+  async inspect(request_id = null, binding_id = null) {
+    return inspectWallet(this, request_id, binding_id, true);
   }
   async pairStatus() {
     const pair = this.state.pair;
@@ -537,6 +617,7 @@ export class PhoneSession {
       analysis_id: rec.analysis.analysis_id,
     });
     rec.grant = signed;
+    rec.delegation = policy?.jws || null;
     rec.status = "approved";
     rec.execution = "not_started";
     rec.mode = policy ? "policy_auto" : "human_confirmed_demo";
