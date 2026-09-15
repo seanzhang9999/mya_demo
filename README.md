@@ -6,7 +6,7 @@
 
 演示与 Hook 更新：[完整演示流程](docs/DEMO_WALKTHROUGH.md)、[Codex Hook 设计及验收标准](docs/CODEX_HOOK.md)。Hook 脚本已实现并安装信任；当前桌面会话热插入探针未被拦截，因此尚不能称为原生 Hook 验收通过。资源端继续独立验证授权。
 
-[下载主讲 PPT v4：10 页架构图解](docs/presentations/MYA_Architecture_v4_20260915.pptx)：用 7 张可编辑架构/流程图讲清部署、绑定、审批、钱包出示、凭证与执行边界。另有 [高清架构图 PNG](docs/presentations/MYA_Architecture_diagrams_v4.zip)。[47 页 v3](docs/presentations/MYA_Demo_v3_20260915.pptx) 保留产品、绑定实图、差异化调研和完整实测记录。
+[下载主讲 PPT v5：10 页架构图解](docs/presentations/MYA_Architecture_v5_20260915.pptx)：用 7 张可编辑架构/流程图讲清部署、绑定、审批、钱包出示、凭证与执行边界。v5 明确：外部拦截或内部 Hook 反馈后，由 Agent 自主调用 Skill，通过钱包完成授权协作；业务资源方保留执行权。[47 页 v3](docs/presentations/MYA_Demo_v3_20260915.pptx) 保留产品、绑定实图、差异化调研和完整实测记录。
 
 指纹交互与分析建议明确模拟；**密钥、JWS/JWE、关系签署、见证和资源端授权检查真实运行**。所有报告只进入演示收件箱，不发送真实邮件或支付。
 
