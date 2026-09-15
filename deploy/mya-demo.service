@@ -1,0 +1,23 @@
+[Unit]
+Description=MYA Demo Web Relay Witness and Resource
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mya-demo
+Group=mya-demo
+WorkingDirectory=/opt/mya-demo/current
+EnvironmentFile=/etc/mya-demo/server.env
+ExecStart=/usr/bin/node services/server.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/mya-demo
+
+[Install]
+WantedBy=multi-user.target

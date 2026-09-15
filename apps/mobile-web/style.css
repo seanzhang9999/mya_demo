@@ -1,0 +1,564 @@
+:root {
+  --ink: #192e2c;
+  --muted: #71817d;
+  --green: #126e5e;
+  --mint: #e2f3ec;
+  --line: #dfe7e1;
+  --bg: #f5f7f5;
+  --gold: #a86b23;
+  --red: #b64f46;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  font:
+    15px/1.6 system-ui,
+    -apple-system,
+    "PingFang SC",
+    sans-serif;
+  color: var(--ink);
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 0;
+  background: var(--green);
+  color: white;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-weight: 650;
+  touch-action: manipulation;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.secondary {
+  background: #eef3ef;
+  color: var(--ink);
+}
+button.outline {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--green);
+}
+button.danger {
+  background: #faece9;
+  color: var(--red);
+}
+button.small {
+  font-size: 12px;
+  padding: 7px 11px;
+}
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+input:focus,
+textarea:focus {
+  outline: 2px solid #63ad96;
+}
+label {
+  display: block;
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 30px;
+  letter-spacing: -1px;
+  line-height: 1.25;
+}
+h2 {
+  font-size: 21px;
+  line-height: 1.4;
+}
+h3 {
+  font-size: 16px;
+}
+p {
+  margin-top: 8px;
+}
+.shell {
+  max-width: 1060px;
+  margin: auto;
+  padding: 24px 28px 120px;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 35px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 750;
+  font-size: 21px;
+  letter-spacing: 2px;
+}
+.brandmark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  color: white;
+  background: var(--green);
+  font-size: 22px;
+}
+.tag {
+  display: inline-block;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #e9eeea;
+  color: #687972;
+  letter-spacing: 0.3px;
+}
+.tag.green {
+  background: var(--mint);
+  color: var(--green);
+}
+.tag.amber {
+  background: #fff1d9;
+  color: var(--gold);
+}
+.tag.red {
+  background: #faeae6;
+  color: var(--red);
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--green);
+  font-weight: 750;
+  margin-bottom: 10px;
+}
+.muted {
+  color: var(--muted);
+}
+.tiny {
+  font-size: 12px;
+}
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 20px;
+}
+.hero p {
+  max-width: 490px;
+  color: var(--muted);
+}
+.hero-number {
+  font-size: 58px;
+  line-height: 1;
+  color: var(--green);
+  font-weight: 500;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+  gap: 20px;
+}
+.card {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  padding: 23px;
+  margin-bottom: 18px;
+  box-shadow: 0 5px 22px #192e2c03;
+}
+.card.accent {
+  background: #eaf4ef;
+  border-color: #d6e9df;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.row.top-align {
+  align-items: flex-start;
+}
+.spaced {
+  margin-top: 18px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.actions button {
+  flex: 1;
+  min-width: 95px;
+}
+.ruleline {
+  height: 1px;
+  background: var(--line);
+  margin: 17px 0;
+}
+.meta {
+  display: grid;
+  grid-template-columns: 85px 1fr;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 16px;
+}
+.meta dt {
+  color: var(--muted);
+}
+.meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 12px;
+}
+.notice {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff7e9;
+  color: #805d27;
+  font-size: 12px;
+}
+.summary {
+  padding: 16px;
+  background: #f0f7f3;
+  border-radius: 12px;
+  margin-top: 16px;
+  border-left: 3px solid #58a58b;
+}
+.summary h3 {
+  color: var(--green);
+}
+.evidence {
+  padding: 15px;
+  border: 1px dashed #cedcd4;
+  border-radius: 12px;
+  font-size: 13px;
+  margin-top: 15px;
+}
+.circle {
+  border: 1px solid #b9d5c8;
+  background: #f1f8f3;
+  border-radius: 50%;
+  width: 90px;
+  height: 90px;
+  display: grid;
+  place-items: center;
+  margin: 20px auto;
+  color: var(--green);
+  font-size: 40px;
+}
+.pair-code {
+  font-size: 32px;
+  letter-spacing: 5px;
+  text-align: center;
+  font-weight: 700;
+  padding: 20px;
+  background: #f0f6f2;
+  border-radius: 14px;
+  margin: 15px 0;
+}
+.empty {
+  text-align: center;
+  padding: 32px 15px;
+  color: var(--muted);
+}
+.empty-icon {
+  font-size: 38px;
+  color: #76a291;
+  margin-bottom: 12px;
+}
+.dock {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  background: #fffefc;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 6px;
+  box-shadow: 0 10px 35px #1c392619;
+  z-index: 10;
+  gap: 5px;
+}
+.dock button {
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  min-width: 95px;
+  padding: 11px 13px;
+  white-space: nowrap;
+}
+.dock button.active {
+  background: var(--mint);
+  color: var(--green);
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #57a488;
+  display: inline-block;
+  margin-right: 6px;
+}
+pre {
+  font-size: 12px;
+  line-height: 1.6;
+  overflow: auto;
+  background: #f3f5f3;
+  border-radius: 10px;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 310px;
+}
+details {
+  margin-top: 14px;
+}
+summary {
+  cursor: pointer;
+  color: var(--green);
+  font-size: 13px;
+}
+.timeline {
+  border-left: 2px solid #dce9e0;
+  padding-left: 16px;
+  margin-left: 5px;
+}
+.timeline p {
+  position: relative;
+  font-size: 13px;
+  margin: 16px 0;
+}
+.timeline p:before {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64a58e;
+}
+.loading {
+  padding: 70px;
+  text-align: center;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #142b2470;
+  backdrop-filter: blur(4px);
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.dialog {
+  background: white;
+  border-radius: 23px;
+  padding: 26px;
+  width: 100%;
+  max-width: 430px;
+  max-height: 90vh;
+  overflow: auto;
+}
+.dialog h2 {
+  text-align: center;
+}
+.dialog p {
+  text-align: center;
+}
+.dialog .meta {
+  margin-top: 20px;
+}
+.dialog .circle {
+  font-size: 35px;
+  border: 2px solid #73aa98;
+}
+.dialog video {
+  width: 100%;
+  border-radius: 12px;
+  max-height: 400px;
+}
+#toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  background: #16392f;
+  color: white;
+  padding: 12px 22px;
+  border-radius: 12px;
+  max-width: 90%;
+  display: none;
+  font-size: 13px;
+}
+.connection {
+  font-size: 12px;
+  color: var(--muted);
+}
+.paper {
+  width: 60px;
+  height: 70px;
+  background: #eff6f1;
+  border: 1px solid #d9e9df;
+  border-radius: 9px;
+  padding: 13px;
+  flex-shrink: 0;
+}
+.paper i {
+  height: 3px;
+  background: #b9cfc1;
+  display: block;
+  margin-bottom: 7px;
+  border-radius: 3px;
+}
+.statbox {
+  display: flex;
+  gap: 28px;
+  margin: 20px 0;
+}
+.statbox strong {
+  display: block;
+  font-size: 25px;
+  color: var(--green);
+  font-weight: 600;
+}
+.statbox span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.intro {
+  padding: 32px;
+}
+.intro .actions {
+  margin-top: 24px;
+}
+.subnav {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 8px;
+}
+.subnav button {
+  background: #eaf0eb;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 7px 13px;
+}
+.subnav button.active {
+  background: var(--green);
+  color: white;
+}
+a {
+  color: var(--green);
+}
+@media (max-width: 650px) {
+  .shell {
+    padding: 19px 18px 108px;
+  }
+  .top {
+    margin-bottom: 27px;
+  }
+  .brand {
+    font-size: 19px;
+  }
+  .brandmark {
+    width: 32px;
+    height: 32px;
+  }
+  .top .tag {
+    font-size: 10px;
+  }
+  .hero {
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 27px;
+  }
+  .hero-number {
+    font-size: 46px;
+  }
+  .grid {
+    display: block;
+  }
+  .card {
+    padding: 19px;
+    border-radius: 17px;
+  }
+  .dock {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: calc(100% - 30px);
+    justify-content: space-around;
+    gap: 0;
+  }
+  .dock button {
+    min-width: 0;
+    flex: 1;
+    padding: 11px 8px;
+  }
+  .connection {
+    font-size: 10px;
+  }
+  .intro {
+    padding: 24px;
+  }
+  .hero p {
+    font-size: 13px;
+  }
+  .notice {
+    font-size: 11px;
+  }
+  .dialog {
+    padding: 22px;
+  }
+  .actions button {
+    font-size: 13px;
+    padding: 12px;
+  }
+  .top .tag.amber {
+    max-width: 160px;
+  }
+  .card h2 {
+    font-size: 19px;
+  }
+}
+
+html {
+  scroll-padding-bottom: 120px;
+}
+button {
+  scroll-margin-bottom: 120px;
+}

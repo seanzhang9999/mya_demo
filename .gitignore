@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.data/
+.mya/
+*.sqlite*
+.env
+artifacts/
