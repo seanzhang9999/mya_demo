@@ -4,6 +4,8 @@ Oracle 已部署 HTTPS Demo。手机入口为 https://mya-esand.duckdns.org/mobi
 
 部署布局：代码 `/opt/mya-demo/releases/`，`/opt/mya-demo/current` 指向当前 release；Node24 位于 `/opt/mya-demo/runtime/`；持久数据 `/var/lib/mya-demo`；环境配置 `/etc/mya-demo/server.env`。下文为维护及新主机安装步骤。
 
+2026-09-15 凭证钱包版本：代码 `0240f65`，发布目录 `/opt/mya-demo/releases/0240f65-20260915`。切换前一致性备份位于主机 `/opt/mya-demo/backups/20260915T061125Z-before-0240f65`（root 0700）；前一发布 `/opt/mya-demo/releases/9471309-20260915` 保留。备份包含私钥与数据库，不应下载到公共目录或提交 Git。需要回滚时切回前一发布并 **restart** 服务，保持当前持久数据；本次新增 kv 类型兼容旧代码，不应直接恢复旧备份而丢失升级后记录。
+
 ## 主机准备
 
 只读核查 Node 24、CPU 架构、磁盘、已有 80/443 服务和代理配置。使用已有 SSH alias `oracle` 时核对实际目标；当前会话已有部署授权时无需重复确认。不要打印 SSH 私钥或替换无关服务。
