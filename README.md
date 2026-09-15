@@ -6,6 +6,8 @@
 
 演示与 Hook 更新：[完整演示流程](docs/DEMO_WALKTHROUGH.md)、[Codex Hook 设计及验收标准](docs/CODEX_HOOK.md)。Hook 脚本已实现并安装信任；当前桌面会话热插入探针未被拦截，因此尚不能称为原生 Hook 验收通过。资源端继续独立验证授权。
 
+[下载叙事优化与目录版 PPT v7：77 页](docs/presentations/MYA_Complete_v7_20260915.pptx)：总目录和章节导航可跳转，按体验问题、架构、完整演示、同类研究与下一步验证组织，原完整版材料保留供查阅。
+
 [下载完整方案 PPT v6：73 页](docs/presentations/MYA_Complete_v6_20260915.pptx)：从授权体验与任务意图讲起，合并架构先导和此前完整版，补充 AgentPass / AgentBee 产品体系与 CyberSecAI 公司研究。
 
 [下载主讲 PPT v5：10 页架构图解](docs/presentations/MYA_Architecture_v5_20260915.pptx)：用 7 张可编辑架构/流程图讲清部署、绑定、审批、钱包出示、凭证与执行边界。v5 明确：外部拦截或内部 Hook 反馈后，由 Agent 自主调用 Skill，通过钱包完成授权协作；业务资源方保留执行权。[47 页 v3](docs/presentations/MYA_Demo_v3_20260915.pptx) 保留产品、绑定实图、差异化调研和完整实测记录。
