@@ -1,5 +1,7 @@
 # MYA Demo V3.1：用户控制的智能审批环境
 
+> 2026-09-15 更新：本文件保留原始开发规格。当前部署/钱包状态见 [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)，新增加的 Skill → 原生 Hook → 钱包出示 → 资源端校验方案及实际未通过项见 [CODEX_HOOK.md](CODEX_HOOK.md)，完整演示见 [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md)。不要将下面的历史“尚未实施”当作当前状态。
+
 **交付对象：接手开发的 Codex 与开发者**
 **日期：2026-09-14｜状态：完整开发规格，尚未实施或部署｜最新决定：手机 Web 优先**
 **承接版本：MYA Demo V2；本文件整合配对、关系凭证、见证、辅助评估、审批历史、规则沉淀，以及手机 HTML 页面替代 Android 首版的最新决定。**

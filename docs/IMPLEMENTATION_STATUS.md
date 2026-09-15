@@ -2,6 +2,12 @@
 
 更新：2026-09-15。当前为已在 Oracle HTTPS 部署的 **Web Demo**，不是生产级手机产品。
 
+## Hook 与真人钱包验收补充
+
+- 新手机重新配对后，真实手机批准请求 `5a0ad59f-2c45-4130-b343-c65bf977e1b8`；Agent 持续等待、挑战出示并执行，15:45:51 获得演示收件箱签名回执，当时 13 项检查通过。完整流水见 [DEMO_WALKTHROUGH.md](DEMO_WALKTHROUGH.md)。
+- 新增窄范围同步 PreToolUse 处理脚本，执行前检查现有手机授权；本机原生审阅为 Trusted。当前 ChatGPT 内置 Codex 活跃会话两次 canary 均执行，热插入未通过，不能宣称当前进程已被拦截。
+- 本次 Node24 自动测试共 18 项通过（原有 15 项加 3 项 Hook 测试）；处理函数对旧真人授权返回 grant_time 拒绝。脚本测试不代表原生工具链接入，批准后原生放行流程待下一轮验收。详见 [CODEX_HOOK.md](CODEX_HOOK.md)。
+
 ## 本机与 Oracle 验收补充
 
 - 已在用户 PC 安装 Node24、MYA CLI 与 Skill；通过真实手机完成配对、要求修改、修订审批和演示收件箱执行。Agent 应持续等待手机决定，不要求用户在主会话重复确认。
