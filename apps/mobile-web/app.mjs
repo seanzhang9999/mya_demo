@@ -84,12 +84,12 @@ function shell(body) {
   const pending = Object.values(phone.state.records).filter(
     (r) => r.status === "pending" && r.q.expires_at > P.now(),
   ).length;
-  return `<main class="shell"><header class="top"><div class="brand"><span class="brandmark">m</span>MYA</div><span class="tag amber">演示环境 · 指纹确认模拟</span></header>${body}<p class="tiny muted spaced">${esc(account?.hint() || "")}</p><p class="tiny muted spaced"><span class="status-dot"></span>${connected ? "连接正常" : "等待连接"} · 本地记录 · 页面需保持前台</p></main><nav class="dock">${[
+  return `<main class="shell"><header class="top"><div class="brand"><span class="brandmark">m</span>MYA</div><span class="tag amber">演示环境 · 指纹确认模拟</span></header>${body}<p class="tiny muted spaced">${esc(account?.hint() || "")} <button class="outline small" data-tab="account">账号与设备</button></p><p class="tiny muted spaced"><span class="status-dot"></span>${connected ? "连接正常" : "等待连接"} · 本地记录 · 页面需保持前台</p></main><nav class="dock">${[
     ["inbox", `待审批${pending ? " · " + pending : ""}`],
     ["history", "审批记录"],
     ["policies", "自动规则"],
     ["devices", "我的 Agent"],
-    ["account", "账号与设备"],
+    ["account", "账号"],
   ]
     .map(
       ([k, v]) =>

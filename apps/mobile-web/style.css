@@ -567,6 +567,7 @@ button {
 .dock {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(540px, calc(100% - 30px));
 }
 .dock button {
   min-width: 0;
