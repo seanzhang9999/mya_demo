@@ -5,6 +5,19 @@ description: Pair a local MYA client with the user's phone, request approval, in
 
 Use the installed `mya` CLI. Run `mya help` to inspect commands. If it is not on PATH, use `node <repository>/packages/cli/mya.mjs` from the configured repository; do not invent the location.
 
+## Agent identity and profile selection
+
+- Before any stateful command, select an explicit per-agent `MYA_HOME`. Different agents on one computer (for example Codex and WorkBuddy) must use different identity keys and state directories. The legacy default `~/.mya-demo` may belong to another agent; never silently adopt it, copy its private keys, overwrite it, or revoke its bindings to fix setup.
+- Use a stable profile per intended agent installation, not a new key for each task. On this Mac, Codex uses `MYA_HOME=/Users/sean/.mya-agents/codex`, display name `Codex · Sean Mac`. WorkBuddy must use its own established profile; inspect metadata before deciding its path. For other hosts choose an explicit agent-specific directory such as `~/.mya-agents/<agent>`.
+- Include the selected `MYA_HOME` on every command (init, pair, doctor, bindings, request, status, present, execute, receipt, revoke). An omitted environment variable falls back to the shared legacy identity. Before issuing a request, verify profile name, server and intended binding from metadata without printing private keys or raw credentials.
+- Always provide `init --name` with a meaningful agent and device label. Explain the proposed name to the user; use a supplied name when available. Re-pair with an existing correctly owned profile when appropriate. A new independent identity requires new keys, not a renamed or copied key file. Keep old bindings until the user explicitly requests their removal.
+- Names are labels; the signing public-key fingerprint identifies the agent. Local profiles prevent accidental mixing but do not authenticate the calling application or isolate mutually untrusted processes running as the same OS user. Strong application isolation needs a protected wallet service and authenticated caller identities.
+
+## Approval devices and ending a relationship
+
+- The mobile web app stores its keys and binding list in each browser's IndexedDB. Another device, browser, browser profile, or private session is a different approval identity; the same URL does not synchronize them. Pair using the user's intended phone browser. Do not clear browser storage or export/copy keys to fix differing lists.
+- Current `mya revoke` signs as the agent and the server permits either agent or user to terminate a relationship. This is agent withdrawal, not a phone-signed user revocation. Never run it merely because a new pairing is requested. User-side revocation uses the phone's signed confirmation; the fingerprint interaction is simulated, while the signature is real. Multi-device user identity, synchronization and distinct withdrawal/revocation audit events are not implemented.
+
 - `mya doctor` checks setup. Initial setup requires the correct server URL and witness fingerprint; local loopback testing may use `--trust-local`. Never auto-trust an unknown remote key.
 - `mya pair` opens a local confirmation page and waits. Give its URL/QR to the user. The user must compare the two short codes and confirm in both interfaces; do not click their confirmations yourself.
 - To send a demo report, write an input JSON file using `fixtures/request-safe.json` or `fixtures/request-cost.json` as a shape. `payload_path` resolves relative to that input. Pass the filename to `mya request --file ...`; do not interpolate report text into shell commands.

@@ -133,7 +133,7 @@ async function main() {
   if (command === "help") {
     output({
       usage: [
-        "mya init --server https://host --trust-witness FINGERPRINT",
+        "mya init --name NAME --server https://host --trust-witness FINGERPRINT",
         "mya init --server http://127.0.0.1:8787 --trust-local",
         "mya pair [--no-open]",
         "mya bindings",
@@ -203,6 +203,9 @@ async function main() {
       });
       output({
         status: "initialized",
+        agent_name: a.name,
+        agent_fingerprint: a.sign.kid,
+        profile_directory: dir,
         server: url.origin,
         witness_fingerprint: fp,
       });
@@ -236,6 +239,9 @@ async function main() {
     if (command === "doctor") {
       output({
         status: "ok",
+        agent_name: identity.name,
+        agent_fingerprint: identity.sign.kid,
+        profile_directory: dir,
         node: process.version,
         server: config.origin,
         private_file_permissions:
