@@ -449,6 +449,9 @@ export class PhoneSession {
       ),
       v = await P.verify(s.status, this.client.trust.witness);
     P.validTime(v, 30000);
+    if (v.binding_id === r.binding_id && this.state.bindings[r.binding_id]) {
+      this.state.bindings[r.binding_id].termination = v.termination || null;
+    }
     P.check(
       v.binding_id === r.binding_id && v.status === "active",
       "BINDING_REVOKED",
@@ -698,12 +701,14 @@ export class PhoneSession {
     P.check(b, "UNKNOWN_BINDING");
     b.status = "revoked";
     await this.save();
-    await this.client.auth(
+    const result = await this.client.auth(
       "/v1/bindings/revoke",
       {},
       this.identity.user,
       binding_id,
     );
+    b.termination = result.termination || null;
+    await this.save();
   }
   async receipt(request_id) {
     const rec = this.state.records[request_id];

@@ -1,4 +1,5 @@
 import http from "node:http";
+import { createAccounts } from "./accounts.mjs";
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
@@ -107,7 +108,56 @@ export async function createServer({
     accept_demo_assurance: acceptDemo,
     capabilities: ["credential-inspection", "challenge-presentation/1"],
   });
-  async function authenticate(path, body) {
+  async function revokeBinding(bindingId, detail, prepareOnly = false) {
+    const b = bind(bindingId);
+    const event = {
+      type: "RelationshipTermination",
+      event_id: P.id(),
+      binding_id: bindingId,
+      termination_type: detail.type,
+      actor_role: detail.actor_role,
+      actor_key_id: detail.actor_key_id,
+      reason: detail.reason || "",
+      at: P.now(),
+      request_proof_hash: await P.hash(detail.actor_proof),
+    };
+    const signed = await P.sign(event, witness);
+    const apply = () => {
+      const current = bind(bindingId);
+      if (current.status === "revoked") return;
+      put("relationship_event", event.event_id, {
+        ...event,
+        signed,
+        actor_proof: detail.actor_proof,
+      });
+      put("binding", bindingId, {
+        ...current,
+        status: "revoked",
+        termination: {
+          type: detail.type,
+          actor_role: detail.actor_role,
+          actor_key_id: detail.actor_key_id,
+          at: event.at,
+          reason: event.reason,
+          event_id: event.event_id,
+          event: signed,
+        },
+      });
+    };
+    if (prepareOnly) return apply;
+    tx(apply);
+    return { status: "revoked", termination: bind(bindingId).termination };
+  }
+  const accounts = createAccounts({
+    get,
+    put,
+    all,
+    del,
+    tx,
+    origin: () => actualOrigin,
+    revokeBinding,
+  });
+  async function authenticate(path, body, req) {
     P.fields(body, ["data", "proof"]);
     const p = P.peek(body.proof),
       c = get("challenge", p.challenge_id);
@@ -126,6 +176,8 @@ export async function createServer({
     for (const [r, k] of Object.entries(publics))
       if ((await P.thumb(k)) === c.kid) role = r;
     P.check(role, "INVALID_ROLE", 403);
+    if (role !== "agent")
+      await accounts.assertSigner(req, await P.thumb(b.relation.phone.user));
     await P.verify(body.proof, publics[role]);
     P.fields(p, [
       "challenge_id",
@@ -165,6 +217,7 @@ export async function createServer({
   async function complete(pair) {
     if (!pair.phone_signature || !pair.agent_confirmation) return pair;
     const rel = await P.relation(pair.invite, pair.join);
+    await accounts.guardRelation(rel);
     const signed = await P.verify(pair.phone_signature, rel.phone.user);
     P.check(
       JSON.stringify(signed) === JSON.stringify(rel),
@@ -210,7 +263,7 @@ export async function createServer({
       return result;
     });
   }
-  async function api(path, body, method, ip) {
+  async function api(path, body, method, ip, req) {
     if (path === "/healthz") return { ok: true, protocol_version: P.VERSION };
     if (path === "/v1/server-info") return info();
     if (path === "/v1/pairings" && method === "POST") {
@@ -295,6 +348,7 @@ export async function createServer({
         );
         await P.verify(body.join, j.phone.phone);
         for (const k of Object.values(j.phone)) await P.thumb(k);
+        await accounts.assertSigner(req, await P.thumb(j.phone.user));
         P.validTime(j, 300000);
         tx(() => {
           pair = get("pair", pair.id);
@@ -311,6 +365,7 @@ export async function createServer({
       P.check(pair.join, "PHONE_NOT_JOINED");
       const rel = await P.relation(pair.invite, pair.join);
       if (body.role === "phone") {
+        await accounts.assertSigner(req, await P.thumb(rel.phone.user));
         const signed = await P.verify(body.signature, rel.phone.user);
         P.check(
           JSON.stringify(signed) === JSON.stringify(rel),
@@ -372,7 +427,7 @@ export async function createServer({
       put("challenge", c.id, c);
       return c;
     }
-    const authenticated = await authenticate(path, body);
+    const authenticated = await authenticate(path, body, req);
     const { b, role } = authenticated,
       bid = b.relation.binding_id;
     let data = authenticated.data,
@@ -414,6 +469,7 @@ export async function createServer({
             type: "BindingStatus",
             binding_id: bid,
             status: b.status,
+            termination: b.termination || null,
             ...P.stamp(30000),
           },
           witness,
@@ -421,8 +477,18 @@ export async function createServer({
       };
     if (path === "/v1/bindings/revoke") {
       P.check(["user", "agent"].includes(role), "INVALID_ROLE", 403);
-      put("binding", bid, { ...b, status: "revoked" });
-      return { status: "revoked" };
+      P.check(
+        data.reason === undefined ||
+          (typeof data.reason === "string" && data.reason.length <= 200),
+        "INVALID_REASON",
+      );
+      return revokeBinding(bid, {
+        type: role === "user" ? "user_revoked" : "agent_withdrawn",
+        actor_role: role,
+        actor_key_id: P.peek(body.proof).kid,
+        reason: data.reason || "",
+        actor_proof: body.proof,
+      });
     }
     if (path === "/v1/demo/executions/query") {
       P.fields(data, ["request_id"]);
@@ -436,6 +502,7 @@ export async function createServer({
         : { receipt: null };
     }
     active(b);
+    await accounts.guardRelation(b.relation);
     const currentAuthorization = (q, g, d, delegation) => {
       active(bind(bid));
       P.validTime(q, 600000);
@@ -857,12 +924,21 @@ export async function createServer({
         }
         body = P.parse(Buffer.concat(chunks).toString("utf8"));
       }
-      const output = await api(
-        path,
-        body,
-        req.method,
-        req.socket.remoteAddress || "unknown",
-      );
+      const output = path.startsWith("/v1/account/")
+        ? await accounts.handle(
+            path,
+            body,
+            req,
+            res,
+            req.socket.remoteAddress || "unknown",
+          )
+        : await api(
+            path,
+            body,
+            req.method,
+            req.socket.remoteAddress || "unknown",
+            req,
+          );
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(output));
     } catch (e) {
@@ -882,6 +958,7 @@ export async function createServer({
     }
   });
   const timer = setInterval(() => {
+    accounts.cleanup();
     for (const k of ["challenge", "message"])
       for (const x of all(k)) if (x.expires_at < P.now()) del(k, x.id);
     for (const p of all("pair"))

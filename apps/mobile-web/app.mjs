@@ -2,6 +2,7 @@ import * as P from "../../packages/protocol/core.mjs";
 import { PhoneSession } from "../../packages/protocol/session.mjs";
 import { get, set, loadState, saveState } from "./storage.mjs";
 import jsQR from "jsqr";
+import { accountUI, terminationName } from "./account.mjs";
 import { credentialPanel } from "./credential-panel.mjs";
 const inspections = new Map();
 const root = document.querySelector("#app"),
@@ -32,6 +33,7 @@ let tab = "inbox",
   last = "",
   pairView = null,
   stream = null;
+let account;
 const statuses = {
   pending: "等待您决定",
   approved: "已批准",
@@ -82,11 +84,12 @@ function shell(body) {
   const pending = Object.values(phone.state.records).filter(
     (r) => r.status === "pending" && r.q.expires_at > P.now(),
   ).length;
-  return `<main class="shell"><header class="top"><div class="brand"><span class="brandmark">m</span>MYA</div><span class="tag amber">演示环境 · 指纹确认模拟</span></header>${body}<p class="tiny muted spaced"><span class="status-dot"></span>${connected ? "连接正常" : "等待连接"} · 本地记录 · 页面需保持前台</p></main><nav class="dock">${[
+  return `<main class="shell"><header class="top"><div class="brand"><span class="brandmark">m</span>MYA</div><span class="tag amber">演示环境 · 指纹确认模拟</span></header>${body}<p class="tiny muted spaced">${esc(account?.hint() || "")}</p><p class="tiny muted spaced"><span class="status-dot"></span>${connected ? "连接正常" : "等待连接"} · 本地记录 · 页面需保持前台</p></main><nav class="dock">${[
     ["inbox", `待审批${pending ? " · " + pending : ""}`],
     ["history", "审批记录"],
     ["policies", "自动规则"],
     ["devices", "我的 Agent"],
+    ["account", "账号与设备"],
   ]
     .map(
       ([k, v]) =>
@@ -119,7 +122,7 @@ function devices() {
   )
     .map(
       (b) =>
-        `<section class="card"><div class="row"><h2>${esc(b.relation.agent.name)}</h2><span class="tag green">${b.status === "active" ? "已绑定" : "已撤销/待同步"}</span></div><dl class="meta"><dt>关系 ID</dt><dd>${esc(b.relation.binding_id)}</dd><dt>有效至</dt><dd>${time(b.relation.expires_at)}</dd><dt>见证</dt><dd>签名已验证 · Demo 凭证</dd><dt>DID</dt><dd>接入预留；当前以公钥指纹验证</dd></dl><details><summary>关系凭证与见证详情</summary><pre>${esc(JSON.stringify({ relation: b.relation, witness: P.peek(b.credentials.witness) }, null, 2))}</pre></details>${credentialPanel(inspections.get(b.relation.binding_id), null, b.relation.binding_id)}<div class="actions"><button class="danger" data-action="revoke" data-id="${b.relation.binding_id}">${b.status === "active" ? "撤销关系" : "重新同步撤销"}</button></div></section>`,
+        `<section class="card"><div class="row"><h2>${esc(b.relation.agent.name)}</h2><span class="tag green">${b.status === "active" ? "已绑定" : b.termination ? terminationName(b.termination) : "本地已停用／等待同步"}</span></div><dl class="meta"><dt>关系 ID</dt><dd>${esc(b.relation.binding_id)}</dd><dt>有效至</dt><dd>${time(b.relation.expires_at)}</dd><dt>见证</dt><dd>签名已验证 · Demo 凭证</dd><dt>DID</dt><dd>接入预留；当前以公钥指纹验证</dd></dl><details><summary>关系凭证与见证详情</summary><pre>${esc(JSON.stringify({ relation: b.relation, witness: P.peek(b.credentials.witness) }, null, 2))}</pre></details>${credentialPanel(inspections.get(b.relation.binding_id), null, b.relation.binding_id)}<div class="actions"><button class="danger" data-action="revoke" data-id="${b.relation.binding_id}">${b.status === "active" ? "撤销关系" : "重新同步撤销"}</button></div></section>`,
     )
     .join(
       "",
@@ -131,7 +134,9 @@ function render() {
     (a, b) => b.q.issued_at - a.q.issued_at,
   );
   let body;
-  if (selected && phone.state.records[selected])
+  if (tab === "account" || (account?.known() && !account.canSign()))
+    body = account.screen();
+  else if (selected && phone.state.records[selected])
     body = details(phone.state.records[selected]);
   else if (tab === "devices") body = devices();
   else if (tab === "policies") body = rules();
@@ -223,6 +228,7 @@ root.addEventListener("click", (e) => {
     render();
     return;
   }
+  if (account?.action(el)) return;
   const a = el.dataset.action,
     rid = el.dataset.id;
   if (a === "detail") {
@@ -403,12 +409,14 @@ async function tick() {
   if (busy || document.hidden) return;
   busy = true;
   try {
+    await account?.refresh();
+    if (account?.known() && !account.canSign()) return;
     await lock(async () => {
       if (phone.state.pair && !pairView?.credentials) {
         pairView = await phone.pairStatus();
         if (pairView.credentials) toast("配对成功，您可以开始审批");
       }
-      await phone.poll();
+      if (!account || account.canSign()) await phone.poll();
     });
     connected = true;
     if (JSON.stringify(phone.state) !== last) render();
@@ -445,12 +453,33 @@ try {
     client.trust = trust;
     phone = new PhoneSession(client, identity, await loadState(), saveState);
   });
+  account = accountUI({
+    phone: () => phone,
+    dialog,
+    verification,
+    run,
+    render,
+    toast,
+    selectAccount: () => {
+      tab = "account";
+      selected = null;
+      render();
+    },
+  });
+  await account.refresh(true);
   connected = true;
   const fragment = location.hash;
   if (fragment) {
     history.replaceState(null, "", location.pathname);
     await run(() => handleInvite(location.origin + "/mobile/" + fragment));
   }
+  window.addEventListener("hashchange", () => {
+    const next = location.hash;
+    if (next) {
+      history.replaceState(null, "", location.pathname);
+      run(() => handleInvite(location.origin + "/mobile/" + next));
+    }
+  });
   render();
   tick();
   setInterval(tick, 3000);
