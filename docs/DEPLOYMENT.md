@@ -8,6 +8,8 @@ Oracle 已部署 HTTPS Demo。手机入口为 https://mya-esand.duckdns.org/mobi
 
 ## 2026-09-16 账号与审批设备升级
 
+已部署代码 `64a44eb`，发布目录 `/opt/mya-demo/releases/64a44eb-20260916`；切换前完整备份 `/opt/mya-demo/backups/20260916T022411Z-before-64a44eb`（root 0700）。本机与 Oracle 的 22 项测试全部通过；两套浏览器流程回归通过。上线后核验原有 11 条关系逐条未改、服务密钥未变、新 Codex 关系的 5 项检查通过。
+
 本版新增账号、设备登记、会话与撤销审计 KV 记录，保留原数据库及签名密钥。操作步骤见 [账号与设备](ACCOUNT_AND_DEVICES.md)。未预置用户账号或密码，原手机用户自行注册。
 
 发布前停止服务并备份整个数据目录；新 release 使用同一份持久数据。升级后核验 HTTPS、见证公钥、既有关系和新账号 API。部署记录保存在主机备份目录。
